@@ -135,4 +135,5 @@ Forex, indices, and commodities without manual adjustment.
 Development proceeds iteratively with live-chart testing. No fixed delivery dates.\
 See [CHANGELOG.md](/CHANGELOG.md) for the full version history.
 
-*🖊️ Pine Script Developer — Stefan Narcis Cucoranu · March 2026*
+*🖊️ Pine Script Developer — Stefan Narcis Cucoranu · March 2026*\
+*💰 Commissioner — Giovanni Roma*
