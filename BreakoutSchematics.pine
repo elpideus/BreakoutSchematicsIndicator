@@ -1,0 +1,208 @@
+//@version=6
+indicator("SSA Schematic v0.1.0", overlay=true, max_labels_count=500)
+
+// ════════════════════════════════════════════════════════════════════════════
+//  INPUTS
+// ════════════════════════════════════════════════════════════════════════════
+
+i_session   = input.session("0000-0800", "Asian Session",
+              tooltip="Session time range expressed in the timezone selected below. Default: 00:00–08:00")
+i_timezone  = input.string("UTC", "Session Timezone",
+              tooltip="IANA timezone name for the session hours above.\nExamples: UTC · Europe/Rome · America/New_York · Asia/Tokyo.\nLeave UTC if your session times are already in UTC.")
+
+i_auto_pip  = input.bool(true, "Auto Pip Size",
+              tooltip="Derives 1 pip from the symbol's minimum tick × 10.\nDisable to enter manually.")
+i_pip       = input.float(0.0001, "Manual Pip Size", minval=0.0000001, step=0.00001,
+              tooltip="Only used when Auto Pip Size is OFF.\n0.0001 for most FX pairs · 0.01 for JPY pairs.")
+
+i_show_long  = input.bool(true, "Show Long Signals",   group="Signals")
+i_show_short = input.bool(true, "Show Short Signals",  group="Signals")
+i_show_label = input.bool(true, "Show Candle Letter",  group="Signals",
+               tooltip="When OFF, only a triangle marker is shown — no text at all.")
+i_offset     = input.float(0.25, "Label Distance (ATR multiplier)", minval=0.0, step=0.05, group="Signals",
+               tooltip="Vertical gap between the candle and the label/triangle, as a multiple of ATR(14).")
+i_tri_size   = input.string("Auto", "Triangle Size", options=["Auto", "Tiny", "Small", "Normal", "Large", "Huge"], group="Signals")
+
+// ════════════════════════════════════════════════════════════════════════════
+//  DERIVED CONSTANTS
+// ════════════════════════════════════════════════════════════════════════════
+
+pip_sz = i_auto_pip ? syminfo.mintick * 10 : i_pip
+thresh          = 0.6 * pip_sz   // 0.6 pip: second-spike distance & continuation extension
+breakout_thresh = 1.0 * pip_sz   // 1 pip: initial candle-A breakout beyond session boundary
+
+C_RED   = color.new(color.red,   0)
+C_GREEN = color.new(color.green, 0)
+
+lbl_offset  = ta.atr(14) * i_offset
+tri_size    = i_tri_size == "Tiny"   ? size.tiny   :
+              i_tri_size == "Small"  ? size.small  :
+              i_tri_size == "Normal" ? size.normal :
+              i_tri_size == "Large"  ? size.large  :
+              i_tri_size == "Huge"   ? size.huge   : size.auto
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SESSION TRACKING
+// ════════════════════════════════════════════════════════════════════════════
+
+is_asian    = not na(time(timeframe.period, i_session, i_timezone))
+asian_start = is_asian and not is_asian[1]
+asian_end   = not is_asian and is_asian[1]
+
+var float sess_hi    = na
+var float sess_lo    = na
+var int   sess_start = na
+
+if asian_start
+    sess_hi    := high
+    sess_lo    := low
+    sess_start := bar_index
+else if is_asian
+    sess_hi := math.max(sess_hi, high)
+    sess_lo := math.min(sess_lo, low)
+
+if asian_end
+    box.new(sess_start, sess_hi, bar_index - 1, sess_lo,
+            border_color=color.new(color.blue, 40),
+            bgcolor=color.new(color.blue, 85),
+            border_width=1)
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SHORT SSA STATE
+// ════════════════════════════════════════════════════════════════════════════
+
+var int   sp      = 0
+var float sp_lock = na
+var float sp_max  = na
+var float sp_min  = na
+var int   sp_abar = na
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LONG SSA STATE
+// ════════════════════════════════════════════════════════════════════════════
+
+var int   lp      = 0
+var float lp_lock = na
+var float lp_min  = na
+var float lp_max  = na
+var int   lp_abar = na
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SESSION TRANSITIONS
+// ════════════════════════════════════════════════════════════════════════════
+
+if asian_start
+    sp      := 0
+    sp_lock := na
+    lp      := 0
+    lp_lock := na
+
+if asian_end
+    sp_lock := sess_hi
+    lp_lock := sess_lo
+    sp      := 1
+    lp      := 1
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SHORT SSA STATE MACHINE
+// ════════════════════════════════════════════════════════════════════════════
+
+if not is_asian and not na(sp_lock)
+    bhi = math.max(open, close)
+    blo = math.min(open, close)
+
+    if sp == 1
+        if bhi > sp_lock
+            sp      := 0
+            sp_lock := na
+        else if high > sp_lock + breakout_thresh
+            sp      := 2
+            sp_max  := high
+            sp_min  := low
+            sp_abar := bar_index
+
+    else if sp == 2
+        if bhi > sp_lock
+            sp      := 0
+            sp_lock := na
+        else if high > sp_max + thresh
+            sp_max  := high
+            sp_abar := bar_index
+        else if high < sp_max - thresh
+            if blo < sp_min - thresh
+                if i_show_short
+                    label.new(bar_index, high + lbl_offset,
+                             i_show_label ? "SSA B-C Short" : "",
+                             color=C_RED, textcolor=color.white,
+                             style=i_show_label ? label.style_label_down : label.style_triangledown,
+                             size=i_show_label ? size.normal : tri_size)
+                sp      := 0
+                sp_lock := na
+            else
+                sp := 3
+
+    else if sp == 3
+        if bhi > sp_lock
+            sp      := 0
+            sp_lock := na
+        else if blo < sp_min - thresh
+            if i_show_short
+                label.new(bar_index, high + lbl_offset,
+                         i_show_label ? "SSA C Short" : "",
+                         color=C_RED, textcolor=color.white,
+                         style=i_show_label ? label.style_label_down : label.style_triangledown,
+                         size=i_show_label ? size.normal : tri_size)
+            sp      := 0
+            sp_lock := na
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LONG SSA STATE MACHINE
+// ════════════════════════════════════════════════════════════════════════════
+
+if not is_asian and not na(lp_lock)
+    bhi = math.max(open, close)
+    blo = math.min(open, close)
+
+    if lp == 1
+        if blo < lp_lock
+            lp      := 0
+            lp_lock := na
+        else if low < lp_lock - breakout_thresh
+            lp      := 2
+            lp_min  := low
+            lp_max  := high
+            lp_abar := bar_index
+
+    else if lp == 2
+        if blo < lp_lock
+            lp      := 0
+            lp_lock := na
+        else if low < lp_min - thresh
+            lp_min  := low
+            lp_abar := bar_index
+        else if low > lp_min + thresh
+            if bhi > lp_max + thresh
+                if i_show_long
+                    label.new(bar_index, low - lbl_offset,
+                             i_show_label ? "SSA B-C Long" : "",
+                             color=C_GREEN, textcolor=color.white,
+                             style=i_show_label ? label.style_label_up : label.style_triangleup,
+                             size=i_show_label ? size.normal : tri_size)
+                lp      := 0
+                lp_lock := na
+            else
+                lp := 3
+
+    else if lp == 3
+        if blo < lp_lock
+            lp      := 0
+            lp_lock := na
+        else if bhi > lp_max + thresh
+            if i_show_long
+                label.new(bar_index, low - lbl_offset,
+                         i_show_label ? "SSA C Long" : "",
+                         color=C_GREEN, textcolor=color.white,
+                         style=i_show_label ? label.style_label_up : label.style_triangleup,
+                         size=i_show_label ? size.normal : tri_size)
+            lp      := 0
+            lp_lock := na
