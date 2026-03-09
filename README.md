@@ -1,6 +1,6 @@
 # 📊 Breakout Schematics
 
-**Pine Script v6 · Version 0.1.0 · In Development**
+**Pine Script v6 · Version 0.2.0 · In Development**
 
 A TradingView indicator that automatically detects and visualizes
 high-probability breakout schematics following a user-defined consolidation
@@ -8,7 +8,7 @@ session. Built around a clean state-machine architecture designed for accuracy,
 readability, and easy expansion.
 
 > ⚠️ **Important Note:** This project is under active development and not yet ready
-for production use.
+> for production use.
 
 ## 🔍 Overview
 
@@ -53,10 +53,10 @@ This triggers the signal.
 
 Two signal variants are produced depending on the path through the state machine:
 
-| Signal | Description |
-| --- | --- |
-| `SSA B-C Long / Short` | Phases 1 → 2 → 3 completed sequentially |
-| `SSA C Long / Short` | Phase 3 fires directly after a Phase 2 pause |
+| Signal                 | Description                                  |
+| ---------------------- | -------------------------------------------- |
+| `SSA B-C Long / Short` | Phases 1 → 2 → 3 completed sequentially      |
+| `SSA C Long / Short`   | Phase 3 fires directly after a Phase 2 pause |
 
 Any candle body closing back through the session boundary invalidates the
 active setup immediately.
@@ -65,27 +65,27 @@ active setup immediately.
 
 ### 🕐 Session Settings
 
-| Input | Default | Description |
-| --- | --- | --- |
-| Asian Session | `0000-0800` | Time range for the reference session |
-| Session Timezone | `UTC` | IANA timezone name (e.g. `Europe/Rome`, `America/New_York`) |
+| Input            | Default     | Description                                                 |
+| ---------------- | ----------- | ----------------------------------------------------------- |
+| Asian Session    | `0000-0800` | Time range for the reference session                        |
+| Session Timezone | `UTC`       | IANA timezone name (e.g. `Europe/Rome`, `America/New_York`) |
 
 ### 📏 Pip Settings
 
-| Input | Default | Description |
-| --- | --- | --- |
-| Auto Pip Size | `true` | Derives pip from `syminfo.mintick × 10` — recommended |
+| Input           | Default  | Description                                               |
+| --------------- | -------- | --------------------------------------------------------- |
+| Auto Pip Size   | `true`   | Derives pip from `syminfo.mintick × 10` — recommended     |
 | Manual Pip Size | `0.0001` | Used only when Auto is disabled; set `0.01` for JPY pairs |
 
 ### 🎯 Signal Settings
 
-| Input | Default | Description |
-| --- | --- | --- |
-| Show Long Signals | `true` | Plots green labels/triangles for long setups |
-| Show Short Signals | `true` | Plots red labels/triangles for short setups |
-| Show Candle Letter | `true` | Shows full text label; when off, renders triangle marker only |
-| Label Distance | `0.25` | Vertical offset from candle as an ATR(14) multiplier |
-| Triangle Size | `Auto` | Options: Auto · Tiny · Small · Normal · Large · Huge |
+| Input              | Default | Description                                                   |
+| ------------------ | ------- | ------------------------------------------------------------- |
+| Show Long Signals  | `true`  | Plots green labels/triangles for long setups                  |
+| Show Short Signals | `true`  | Plots red labels/triangles for short setups                   |
+| Show Candle Letter | `true`  | Shows full text label; when off, renders triangle marker only |
+| Label Distance     | `0.25`  | Vertical offset from candle as an ATR(14) multiplier          |
+| Triangle Size      | `Auto`  | Options: Auto · Tiny · Small · Normal · Large · Huge          |
 
 ## 📥 Installation
 
@@ -135,5 +135,5 @@ Forex, indices, and commodities without manual adjustment.
 Development proceeds iteratively with live-chart testing. No fixed delivery dates.\
 See [CHANGELOG.md](/CHANGELOG.md) for the full version history.
 
-*🖊️ Pine Script Developer — Stefan Narcis Cucoranu · March 2026*\
-*💰 Commissioner — Giovanni Roma*
+_🖊️ Pine Script Developer — Stefan Narcis Cucoranu · March 2026_\
+_💰 Commissioner — Giovanni Roma_

@@ -1,5 +1,5 @@
 //@version=6
-indicator("SSA Schematic v0.1.0", overlay=true, max_labels_count=500)
+indicator("SSA Schematic v0.2.0", overlay=true, max_labels_count=500)
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INPUTS
@@ -127,6 +127,7 @@ if not is_asian and not na(sp_lock)
             sp_lock := na
         else if high > sp_max + thresh
             sp_max  := high
+            sp_min  := math.max(sp_min, low)
             sp_abar := bar_index
         else if high < sp_max - thresh
             if blo < sp_min - thresh
@@ -179,6 +180,7 @@ if not is_asian and not na(lp_lock)
             lp_lock := na
         else if low < lp_min - thresh
             lp_min  := low
+            lp_max  := math.min(lp_max, high)
             lp_abar := bar_index
         else if low > lp_min + thresh
             if bhi > lp_max + thresh
