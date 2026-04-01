@@ -1,93 +1,143 @@
-# 📊 Breakout Schematics
+# Breakout Schematics
 
-**Pine Script v6 · Version 0.2.0 · In Development**
+**Pine Script v6 · Version 0.3.0 · In Development**
 
-A TradingView indicator that automatically detects and visualizes
-high-probability breakout schematics following a user-defined consolidation
-session. Built around a clean state-machine architecture designed for accuracy,
-readability, and easy expansion.
+A TradingView indicator that automatically detects and visualizes high-probability
+breakout schematics following a user-defined consolidation session. Built around a
+clean state-machine architecture designed for accuracy, readability, and easy expansion.
 
-> ⚠️ **Important Note:** This project is under active development and not yet ready
-> for production use.
+> **Note:** This project is under active development and not yet ready for production use.
 
-## 🔍 Overview
+---
 
-Breakout Schematics works by tracking price behavior relative to a reference
-session (default: Asian Session, 00:00–08:00 UTC). Once the session closes, the
-indicator monitors for structured breakout patterns and plots signals directly
-on the chart.
+## Overview
 
-The current release implements the full **SSA schematic** — both the B-C and C
-variants — for both long and short directions.
+Breakout Schematics works by tracking price behavior relative to a reference session
+(default: Asian Session, 00:00–08:00 UTC). Once the session closes, the indicator
+monitors for structured breakout patterns and plots signals directly on the chart.
 
-## ⚙️ How It Works
+The current release implements two fully working schematics:
 
-### 🕐 Session Engine
+- **SSA** — a three-phase breakout-continuation-confirmation pattern (B-C and C variants)
+- **S1** — a two-phase breakout-and-reversal pattern
 
-At the start of each session, the indicator begins tracking the rolling high and
-low. When the session closes, it draws a shaded box over the session range and
-locks the boundaries as reference levels for schematic detection.
+---
+
+## How It Works
+
+### Session Engine
+
+At the start of each session, the indicator begins tracking the rolling high and low.
+When the session closes, it draws a shaded box over the session range and locks the
+boundaries as reference levels for schematic detection.
 
 - Configurable session time and timezone (full IANA support)
 - Real-time high/low box rendered only during the active session
 - State resets cleanly on every new session open
 
-### 🤖 SSA Schematic — State Machine
+---
 
-After session close, the indicator runs two parallel state machines (one long,
-one short), each progressing through the following phases:
+### SSA Schematic — State Machine
+
+After session close, the indicator runs two parallel state machines (one long, one short),
+each progressing through the following phases:
 
 **Phase 1 — Breakout (Candle A)**
-Price wicks beyond the session boundary by at least **1 pip**. The body must not
-close through the boundary — a full close invalidates the setup and resets state.
+Price wicks beyond the session boundary by at least 1 pip. The body must not close
+through the boundary — a full close invalidates the setup and resets state.
 
 **Phase 2 — Continuation (Candle B)**
-A second spike extends the wick extreme by at least **0.6 pip**, confirming
-directional pressure. The extreme is updated if price pushes further; the
-threshold for the next phase is adjusted accordingly.
+A second spike extends the wick extreme by at least 0.6 pip, confirming directional
+pressure. The extreme is updated if price pushes further.
 
 **Phase 3 — Confirmation (Candle C)**
-Price pulls back from the extreme by at least 0.6 pip, then makes a decisive move
-in the breakout direction — body close clearing the prior extreme by 0.6 pip.
-This triggers the signal.
+Price pulls back from the extreme by at least 0.6 pip, then makes a decisive move in
+the breakout direction — body close clearing the prior extreme by 0.6 pip. This triggers
+the signal.
 
 Two signal variants are produced depending on the path through the state machine:
 
-| Signal                 | Description                                  |
-| ---------------------- | -------------------------------------------- |
-| `SSA B-C Long / Short` | Phases 1 → 2 → 3 completed sequentially      |
-| `SSA C Long / Short`   | Phase 3 fires directly after a Phase 2 pause |
+| Signal              | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `SSA B-C Long/Short` | Phases 1 → 2 → 3 completed sequentially         |
+| `SSA C Long/Short`   | Phase 3 fires directly after a Phase 2 pause    |
 
-Any candle body closing back through the session boundary invalidates the
-active setup immediately.
+Any candle body closing back through the session boundary immediately invalidates the
+active setup.
 
-## 🎛️ Inputs
+---
 
-### 🕐 Session Settings
+### S1 Schematic — State Machine
 
-| Input            | Default     | Description                                                 |
-| ---------------- | ----------- | ----------------------------------------------------------- |
-| Asian Session    | `0000-0800` | Time range for the reference session                        |
-| Session Timezone | `UTC`       | IANA timezone name (e.g. `Europe/Rome`, `America/New_York`) |
+A two-phase pattern that captures breakout-and-reversal structures relative to the
+session boundary.
 
-### 📏 Pip Settings
+**Phase 1 — Breakout (Reference Candle)**
+A candle's body closes beyond the session boundary by at least 1 pip. The candle's wick
+extreme and body edge are locked as tracking references.
 
-| Input           | Default  | Description                                               |
-| --------------- | -------- | --------------------------------------------------------- |
-| Auto Pip Size   | `true`   | Derives pip from `syminfo.mintick × 10` — recommended     |
-| Manual Pip Size | `0.0001` | Used only when Auto is disabled; set `0.01` for JPY pairs |
+**Phase 2 — Reversal (Signal Candle)**
+A subsequent candle reverses and closes through the reference body edge by at least
+0.6 pip. This triggers the signal.
 
-### 🎯 Signal Settings
+If price instead continues in the breakout direction (new wick extreme), the reference
+candle is updated to the new one and Phase 2 restarts.
 
-| Input              | Default | Description                                                   |
-| ------------------ | ------- | ------------------------------------------------------------- |
-| Show Long Signals  | `true`  | Plots green labels/triangles for long setups                  |
-| Show Short Signals | `true`  | Plots red labels/triangles for short setups                   |
-| Show Candle Letter | `true`  | Shows full text label; when off, renders triangle marker only |
-| Label Distance     | `0.25`  | Vertical offset from candle as an ATR(14) multiplier          |
-| Triangle Size      | `Auto`  | Options: Auto · Tiny · Small · Normal · Large · Huge          |
+| Signal          | Description                                          |
+| --------------- | ---------------------------------------------------- |
+| `S1 Long/Short` | Body breaks out, then reverses through reference body |
 
-## 📥 Installation
+---
+
+## Inputs
+
+### Session
+
+| Input            | Default     | Description                                                      |
+| ---------------- | ----------- | ---------------------------------------------------------------- |
+| Session Time     | `0000-0800` | Time range for the reference consolidation session               |
+| Session Timezone | `UTC`       | IANA timezone (e.g. `Europe/Rome`, `America/New_York`)           |
+
+### Session Style
+
+| Input            | Default                    | Description                              |
+| ---------------- | -------------------------- | ---------------------------------------- |
+| Border Color     | Blue (40% transparency)    | Color of the session box border          |
+| Background Color | Blue (85% transparency)    | Fill color of the session box            |
+| Border Width     | `1`                        | Thickness of the session box border (1–4)|
+
+### Pip Settings
+
+| Input           | Default  | Description                                                         |
+| --------------- | -------- | ------------------------------------------------------------------- |
+| Auto Pip Size   | `true`   | Derives pip from `syminfo.mintick × 10` — recommended               |
+| Manual Pip Size | `0.0001` | Used only when Auto is off; use `0.01` for JPY, `1.0` for indices  |
+
+### SSA Schematic
+
+| Input               | Default | Description                                  |
+| ------------------- | ------- | -------------------------------------------- |
+| Show Long Signals   | `true`  | Plots green labels for SSA long setups       |
+| Show Short Signals  | `true`  | Plots red labels for SSA short setups        |
+
+### S1 Schematic
+
+| Input               | Default | Description                                  |
+| ------------------- | ------- | -------------------------------------------- |
+| Show Long Signals   | `true`  | Plots green labels for S1 long setups        |
+| Show Short Signals  | `true`  | Plots red labels for S1 short setups         |
+
+### Display
+
+| Input               | Default | Description                                                         |
+| ------------------- | ------- | ------------------------------------------------------------------- |
+| Show Signal Labels  | `true`  | Shows full text label; when off, renders triangle marker only       |
+| Label Distance      | `0.25`  | Vertical offset from candle as an ATR(14) multiplier                |
+| Triangle Size       | `Auto`  | Options: Auto · Tiny · Small · Normal · Large · Huge                |
+
+---
+
+## Installation
 
 1. Open TradingView and navigate to **Pine Editor**
 2. Paste the full contents of `BreakoutSchematics.pine`
@@ -97,7 +147,9 @@ active setup immediately.
 Compatible with all timeframes and most instruments. Pip auto-detection handles
 Forex, indices, and commodities without manual adjustment.
 
-## 🛣️ Roadmap
+---
+
+## Roadmap
 
 ### Phase 1 — Core Foundation
 
@@ -108,32 +160,34 @@ Forex, indices, and commodities without manual adjustment.
 
 ### Phase 2 — Expanded Schematics
 
-- [ ] S1 schematic detection and labeling
+- [x] S1 schematic detection and labeling
 - [ ] MUT schematic detection and labeling
 - [ ] S5 schematic detection and labeling
 - [ ] Shared state management for overlapping patterns
 
-### Phase 3 — 🔔 Alert System
+### Phase 3 — Alert System
 
 - [ ] Native TradingView alerts for all schematics
 - [ ] Optional webhook support
 - [ ] Customizable alert messages (schematic name, direction, price level)
 
-### Phase 4 — ✨ Visual Enhancements
+### Phase 4 — Visual Enhancements
 
 - [ ] Order block and mitigation block drawing
 - [ ] Fair value gap highlighting
 - [ ] Extended session high/low lines
 - [ ] Color themes and styling options
 
-### Phase 5 — 📈 Strategy & Backtesting
+### Phase 5 — Strategy & Backtesting
 
 - [ ] Full strategy version with entry and exit logic
 - [ ] Risk management parameters (R:R ratio, stop-loss rules)
 - [ ] Performance dashboard (win rate, profit factor, expectancy)
 
-Development proceeds iteratively with live-chart testing. No fixed delivery dates.\
-See [CHANGELOG.md](/CHANGELOG.md) for the full version history.
+Development proceeds iteratively with live-chart testing. No fixed delivery dates.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-_🖊️ Pine Script Developer — Stefan Narcis Cucoranu · March 2026_\
-_💰 Commissioner — Giovanni Roma_
+---
+
+_Pine Script Developer — Stefan Narcis Cucoranu · March 2026_\
+_Commissioner — Giovanni Roma_
