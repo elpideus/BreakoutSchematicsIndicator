@@ -1,5 +1,5 @@
 //@version=6
-indicator("SSA Schematic v0.3.0", overlay=true, max_labels_count=500)
+indicator("SSA Schematic v5.0.0", overlay=true, max_labels_count=500)
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INPUTS
@@ -121,11 +121,23 @@ i_s1_dir  = input.string("Both", "S1 Schematic",
             options=["Long", "Short", "Both", "Off"],
             group="📈 Schematics",
             tooltip="Which S1 signals to display.\n· Long — S1 B-C Long and S1 C Long only\n· Short — S1 B-C Short and S1 C Short only\n· Both — all S1 signals\n· Off — disable S1 signals")
+i_mut_dir = input.string("Both", "MUT Schematic",
+            options=["Long", "Short", "Both", "Off"],
+            group="📈 Schematics",
+            tooltip="Which MUT signals to display.\n· Long — MUT Long only\n· Short — MUT Short only\n· Both — all MUT signals\n· Off — disable MUT signals")
+i_s5_dir  = input.string("Both", "S5 Schematic",
+            options=["Long", "Short", "Both", "Off"],
+            group="📈 Schematics",
+            tooltip="Which S5 signals to display.\nS5 = MUT where any candle between candle A and the return came within 0.6 pips of candle A's peak.\n· Long — S5 Long only\n· Short — S5 Short only\n· Both — all S5 signals\n· Off — disable S5 signals")
 
-i_show_long     = i_ssa_dir == "Long"  or i_ssa_dir == "Both"
-i_show_short    = i_ssa_dir == "Short" or i_ssa_dir == "Both"
-i_show_s1_long  = i_s1_dir  == "Long"  or i_s1_dir  == "Both"
-i_show_s1_short = i_s1_dir  == "Short" or i_s1_dir  == "Both"
+i_show_long      = i_ssa_dir == "Long"  or i_ssa_dir == "Both"
+i_show_short     = i_ssa_dir == "Short" or i_ssa_dir == "Both"
+i_show_s1_long   = i_s1_dir  == "Long"  or i_s1_dir  == "Both"
+i_show_s1_short  = i_s1_dir  == "Short" or i_s1_dir  == "Both"
+i_show_mut_long  = i_mut_dir == "Long"  or i_mut_dir == "Both"
+i_show_mut_short = i_mut_dir == "Short" or i_mut_dir == "Both"
+i_show_s5_long   = i_s5_dir  == "Long"  or i_s5_dir  == "Both"
+i_show_s5_short  = i_s5_dir  == "Short" or i_s5_dir  == "Both"
 
 // ── Session Style ─────────────────────────────────────────────────────────────
 i_sess_border_color = input.color(color.new(color.blue, 40), "Border Color",
@@ -170,8 +182,10 @@ session    = _start_str + "-" + str.format("{0,number,00}", _new_h) + str.format
 thresh          = 0.6 * pip_sz   // 0.6 pip: second-spike distance & continuation extension
 breakout_thresh = 1.0 * pip_sz   // 1 pip: initial candle-A breakout beyond session boundary
 
-C_RED   = color.new(color.red,   0)
-C_GREEN = color.new(color.green, 0)
+C_RED    = color.new(color.red,    0)
+C_GREEN  = color.new(color.green,  0)
+C_TEAL   = color.new(color.teal,   0)
+C_PURPLE = color.new(color.purple, 0)
 
 lbl_offset  = ta.atr(14) * i_offset
 tri_size    = i_tri_size == "Tiny"   ? size.tiny   :
@@ -225,6 +239,22 @@ var float s1lp_min  = na
 var float s1lp_max  = na
 
 // ════════════════════════════════════════════════════════════════════════════
+//  MUT STATE
+// ════════════════════════════════════════════════════════════════════════════
+
+var int   mut_sp_state  = 0      // 0: watching for candle A, 1: have candle A
+var float mut_sp_watch  = na     // level from SSA/S1 Short that must be broken to create candle A
+var float mut_sp_max    = na     // candle A high
+var float mut_sp_min    = na     // candle A low (return target)
+var bool  mut_sp_s5flag = false  // true when any candle came within 0.6 pips of candle A high
+
+var int   mut_lp_state  = 0      // 0: watching for candle A, 1: have candle A
+var float mut_lp_watch  = na     // level from SSA/S1 Long that must be broken to create candle A
+var float mut_lp_min    = na     // candle A low
+var float mut_lp_max    = na     // candle A high (return target)
+var bool  mut_lp_s5flag = false  // true when any candle came within 0.6 pips of candle A low
+
+// ════════════════════════════════════════════════════════════════════════════
 //  SHORT SSA STATE
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -257,6 +287,12 @@ if asian_start
     s1sp_lock := na
     s1lp      := 0
     s1lp_lock := na
+    mut_sp_state  := 0
+    mut_sp_watch  := na
+    mut_sp_s5flag := false
+    mut_lp_state  := 0
+    mut_lp_watch  := na
+    mut_lp_s5flag := false
 
 if asian_end
     sp_lock := sess_hi
@@ -301,10 +337,12 @@ if not is_asian and not na(sp_lock)
                              color=C_RED, textcolor=color.white,
                              style=i_show_label ? label.style_label_down : label.style_triangledown,
                              size=i_show_label ? size.normal : tri_size)
+                mut_sp_watch := sp_max
+                mut_sp_state := 0
+    
                 sp      := 0
                 sp_lock := na
                 s1sp_lock := na
-                s1lp_lock := na
             else
                 sp := 3
 
@@ -316,10 +354,12 @@ if not is_asian and not na(sp_lock)
                          color=C_RED, textcolor=color.white,
                          style=i_show_label ? label.style_label_down : label.style_triangledown,
                          size=i_show_label ? size.normal : tri_size)
+            mut_sp_watch := sp_max
+            mut_sp_state := 0
+
             sp      := 0
             sp_lock := na
             s1sp_lock := na
-            s1lp_lock := na
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LONG SSA STATE MACHINE
@@ -354,9 +394,11 @@ if not is_asian and not na(lp_lock)
                              color=C_GREEN, textcolor=color.white,
                              style=i_show_label ? label.style_label_up : label.style_triangleup,
                              size=i_show_label ? size.normal : tri_size)
+                mut_lp_watch := lp_min
+                mut_lp_state := 0
+    
                 lp      := 0
                 lp_lock := na
-                s1sp_lock := na
                 s1lp_lock := na
             else
                 lp := 3
@@ -369,9 +411,11 @@ if not is_asian and not na(lp_lock)
                          color=C_GREEN, textcolor=color.white,
                          style=i_show_label ? label.style_label_up : label.style_triangleup,
                          size=i_show_label ? size.normal : tri_size)
+            mut_lp_watch := lp_min
+            mut_lp_state := 0
+
             lp      := 0
             lp_lock := na
-            s1sp_lock := na
             s1lp_lock := na
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -402,10 +446,12 @@ if not is_asian and not na(s1sp_lock)
                          color=C_RED, textcolor=color.white,
                          style=i_show_label ? label.style_label_down : label.style_triangledown,
                          size=i_show_label ? size.normal : tri_size)
+            mut_sp_watch := s1sp_max
+            mut_sp_state := 0
+
             s1sp      := 0
             s1sp_lock := na
             sp_lock   := na
-            lp_lock   := na
         // No extension, no signal → wait for C candle
         else
             s1sp := 3
@@ -419,10 +465,12 @@ if not is_asian and not na(s1sp_lock)
                          color=C_RED, textcolor=color.white,
                          style=i_show_label ? label.style_label_down : label.style_triangledown,
                          size=i_show_label ? size.normal : tri_size)
+            mut_sp_watch := s1sp_max
+            mut_sp_state := 0
+
             s1sp      := 0
             s1sp_lock := na
             sp_lock   := na
-            lp_lock   := na
 
 // ════════════════════════════════════════════════════════════════════════════
 //  S1 LONG STATE MACHINE
@@ -452,9 +500,11 @@ if not is_asian and not na(s1lp_lock)
                          color=C_GREEN, textcolor=color.white,
                          style=i_show_label ? label.style_label_up : label.style_triangleup,
                          size=i_show_label ? size.normal : tri_size)
+            mut_lp_watch := s1lp_min
+            mut_lp_state := 0
+
             s1lp      := 0
             s1lp_lock := na
-            sp_lock   := na
             lp_lock   := na
         // No extension, no signal → wait for C candle
         else
@@ -469,17 +519,103 @@ if not is_asian and not na(s1lp_lock)
                          color=C_GREEN, textcolor=color.white,
                          style=i_show_label ? label.style_label_up : label.style_triangleup,
                          size=i_show_label ? size.normal : tri_size)
+            mut_lp_watch := s1lp_min
+            mut_lp_state := 0
+
             s1lp      := 0
             s1lp_lock := na
-            sp_lock   := na
             lp_lock   := na
+
+// ════════════════════════════════════════════════════════════════════════════
+//  MUT SHORT STATE MACHINE
+// ════════════════════════════════════════════════════════════════════════════
+
+if not is_asian and not na(mut_sp_watch)
+    if mut_sp_state == 0
+        if high > mut_sp_watch + thresh
+            mut_sp_max    := high
+            mut_sp_min    := low
+            mut_sp_s5flag := false
+            mut_sp_state  := 1
+
+    else if mut_sp_state == 1
+        _prev_sp_min  = mut_sp_min
+        _sp_extended  = high > mut_sp_max + thresh
+        if _sp_extended
+            mut_sp_max    := high
+            mut_sp_min    := low
+            mut_sp_s5flag := false
+        else
+            if math.abs(high - mut_sp_max) < thresh
+                mut_sp_s5flag := true
+        _sp_ret_min = _sp_extended ? _prev_sp_min : mut_sp_min
+        if math.min(open, close) < _sp_ret_min - thresh
+            if mut_sp_s5flag
+                if i_show_s5_short
+                    label.new(bar_index, high + lbl_offset,
+                             i_show_label ? "S5 Short" : "",
+                             color=C_PURPLE, textcolor=color.white,
+                             style=i_show_label ? label.style_label_down : label.style_triangledown,
+                             size=i_show_label ? size.normal : tri_size)
+            else
+                if i_show_mut_short
+                    label.new(bar_index, high + lbl_offset,
+                             i_show_label ? "MUT Short" : "",
+                             color=C_TEAL, textcolor=color.white,
+                             style=i_show_label ? label.style_label_down : label.style_triangledown,
+                             size=i_show_label ? size.normal : tri_size)
+            mut_sp_watch  := mut_sp_max
+            mut_sp_state  := 0
+            mut_sp_s5flag := false
+
+// ════════════════════════════════════════════════════════════════════════════
+//  MUT LONG STATE MACHINE
+// ════════════════════════════════════════════════════════════════════════════
+
+if not is_asian and not na(mut_lp_watch)
+    if mut_lp_state == 0
+        if low < mut_lp_watch - thresh
+            mut_lp_min    := low
+            mut_lp_max    := high
+            mut_lp_s5flag := false
+            mut_lp_state  := 1
+
+    else if mut_lp_state == 1
+        _prev_lp_max  = mut_lp_max
+        _lp_extended  = low < mut_lp_min - thresh
+        if _lp_extended
+            mut_lp_min    := low
+            mut_lp_max    := high
+            mut_lp_s5flag := false
+        else
+            if math.abs(low - mut_lp_min) < thresh
+                mut_lp_s5flag := true
+        _lp_ret_max = _lp_extended ? _prev_lp_max : mut_lp_max
+        if math.max(open, close) > _lp_ret_max + thresh
+            if mut_lp_s5flag
+                if i_show_s5_long
+                    label.new(bar_index, low - lbl_offset,
+                             i_show_label ? "S5 Long" : "",
+                             color=C_PURPLE, textcolor=color.white,
+                             style=i_show_label ? label.style_label_up : label.style_triangleup,
+                             size=i_show_label ? size.normal : tri_size)
+            else
+                if i_show_mut_long
+                    label.new(bar_index, low - lbl_offset,
+                             i_show_label ? "MUT Long" : "",
+                             color=C_TEAL, textcolor=color.white,
+                             style=i_show_label ? label.style_label_up : label.style_triangleup,
+                             size=i_show_label ? size.normal : tri_size)
+            mut_lp_watch  := mut_lp_min
+            mut_lp_state  := 0
+            mut_lp_s5flag := false
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SETTINGS OVERVIEW TABLE
 // ════════════════════════════════════════════════════════════════════════════
 
 if barstate.islast
-    var table t = table.new(position.top_right, 2, 6,
+    var table t = table.new(position.top_right, 2, 8,
                  border_color=color.new(color.gray, 60),
                  border_width=1,
                  frame_color=color.new(color.gray, 40),
@@ -519,4 +655,12 @@ if barstate.islast
     // S1 schematic direction
     table.cell(t, 0, 5, "S1",       text_color=C_ROW_TEXT, bgcolor=C_ROW_BG, text_size=size.small)
     table.cell(t, 1, 5, i_s1_dir,   text_color=C_ROW_TEXT, bgcolor=C_ROW_BG, text_size=size.small)
+
+    // MUT schematic direction
+    table.cell(t, 0, 6, "MUT",      text_color=C_ROW_TEXT, bgcolor=C_ROW_BG, text_size=size.small)
+    table.cell(t, 1, 6, i_mut_dir,  text_color=C_ROW_TEXT, bgcolor=C_ROW_BG, text_size=size.small)
+
+    // S5 schematic direction
+    table.cell(t, 0, 7, "S5",       text_color=C_ROW_TEXT, bgcolor=C_ROW_BG, text_size=size.small)
+    table.cell(t, 1, 7, i_s5_dir,   text_color=C_ROW_TEXT, bgcolor=C_ROW_BG, text_size=size.small)
 

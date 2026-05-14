@@ -1,5 +1,32 @@
 # 📜 Changelog
 
+## [5.0.0] — 2026-05-14
+
+### Version Bump
+
+- 🔢 Bumped version to 5.0.0 — migrated from GitHub Gist to a dedicated private repository
+
+---
+
+## [0.4.0] — 2026-04-08
+
+### New Features
+
+- ✅ MUT schematic fully implemented — two parallel state machines (long and short) detecting a two-phase pullback-and-reversal pattern seeded by prior SSA or S1 signal extremes
+- 🎨 MUT signals rendered in teal with the same label/triangle toggle as other schematics
+- 📋 Settings overview table updated — MUT direction row added
+
+### Input System
+
+- ➕ "MUT Schematic" direction dropdown added ("Long / Short / Both / Off") under the Schematics group
+
+### State Machine Fixes
+
+- 🔗 SSA and S1 state machines now perform **full cross-disarming** on signal fire and on candle-A detection — the opposing direction's SSA and S1 states are both cleared, preventing conflicting setups from running simultaneously
+- 🔗 MUT watch levels (`mut_sp_watch` / `mut_lp_watch`) are set by SSA and S1 signal fires, wiring all three schematics into a coherent signal chain
+
+---
+
 ## [0.3.0] — 2026-04-01
 
 ### New Features
